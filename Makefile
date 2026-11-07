@@ -54,3 +54,29 @@ db/migrations/new:
 db/migrations/up:
 	@echo 'Running up migrations...'
 	migrate -path migrations -database="${TIXR_DB_DSN}" up
+
+# ==================================================================================== #
+# QUALITY CONTROL
+# ==================================================================================== #
+
+## tidy: format all .go files and tidy module dependencies
+.PHONY: tidy
+tidy:
+	@echo 'Formatting .go files...'
+	go fmt ./...
+	@echo 'Tidying module dependencies...'
+	go mod tidy
+
+## audit: run quality control checks
+.PHONY: audit
+audit:
+	@echo 'Checking module dependencies...'
+	go mod tidy -diff
+	go mod verify
+	@echo 'Checking formatting...'
+	@test -z "$$(gofmt -l .)" || (echo 'Files need formatting:'; gofmt -l .; exit 1)
+	@echo 'Vetting code...'
+	go vet ./...
+	go tool staticcheck ./...
+	@echo 'Running tests...'
+	go test -race -vet=off ./...
