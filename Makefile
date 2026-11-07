@@ -23,10 +23,10 @@ confirm:
 run/tixr:
 	go run ./cmd/tixr -db-dsn="${TIXR_DB_DSN}"
 
-## infra/up: start local infrastructure
+## infra/up: start local infrastructure and wait until it's healthy
 .PHONY: infra/up
 infra/up:
-	docker compose up -d
+	docker compose up -d --wait
 
 ## infra/down: stop local infrastructure (keeps data)
 .PHONY: infra/down
