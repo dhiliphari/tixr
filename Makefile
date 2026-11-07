@@ -80,3 +80,16 @@ audit:
 	go tool staticcheck ./...
 	@echo 'Running tests...'
 	go test -race -vet=off ./...
+
+# ==================================================================================== #
+# BUILD
+# ==================================================================================== #
+
+git_description = $(shell git describe --always --dirty --tags --long 2>/dev/null || echo dev)
+linker_flags = '-s -X main.version=${git_description}'
+
+## build/tixr: build the cmd/tixr application
+.PHONY: build/tixr
+build/tixr:
+	@echo 'Building cmd/tixr...'
+	go build -ldflags=${linker_flags} -o=./bin/tixr ./cmd/tixr
