@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/dhiliphari/tixr/internal/booking"
@@ -33,6 +34,7 @@ type application struct {
 	catalog *catalog.Store
 	booking *booking.Store
 	mailer  *mailer
+	wg      sync.WaitGroup
 }
 
 func main() {
