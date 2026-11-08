@@ -17,12 +17,13 @@ import (
 var version = "dev"
 
 type config struct {
-	port int
-	env  string
-	db   struct {
+	port            int
+	env             string
+	mailDelay       time.Duration
+	shutdownTimeout time.Duration
+	db              struct {
 		dsn string
 	}
-	mailDelay time.Duration
 }
 
 type application struct {
@@ -83,6 +84,7 @@ func loadCfg() (config, bool) {
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("TIXR_DB_DSN"), "PostgreSQL DSN")
 	flag.DurationVar(&cfg.mailDelay, "mail-delay", 2*time.Second, "Simulated latency of sending an email")
+	flag.DurationVar(&cfg.shutdownTimeout, "shutdown-timeout", 20*time.Second, "Maximum time to wait for in-flight work during shutdown")
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
 	flag.Parse()

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -17,7 +20,35 @@ func (app *application) serve() error {
 		ErrorLog:     slog.NewLogLogger(app.logger.Handler(), slog.LevelError),
 	}
 
-	app.logger.Info("starting server", "addr", srv.Addr, "env", app.config.env, "version", version)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	return srv.ListenAndServe()
+	// buffered channel to unblock goroutine even if nobody reads it
+	serverErr := make(chan error, 1)
+	go func() {
+		app.logger.Info("starting server", "addr", srv.Addr, "env", app.config.env, "version", version)
+		serverErr <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverErr:
+		// server failed before any signal arrived
+		return fmt.Errorf("listen and serve: %w", err)
+	case <-ctx.Done():
+	}
+
+	// restore the default signal behaviour
+	stop()
+
+	app.logger.Info("shutting down server", "timeout", app.config.shutdownTimeout.String())
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), app.config.shutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("shutdown: %w", err)
+	}
+
+	app.logger.Info("server stopped")
+	return nil
 }
