@@ -14,5 +14,5 @@ func (app *application) routes() http.Handler {
 
 	mux.HandleFunc("GET /v1/bookings/{id}", app.showBookingHandler)
 
-	return mux
+	return app.recoverPanic(mux)
 }
