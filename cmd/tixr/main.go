@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/dhiliphari/tixr/internal/booking"
+	"github.com/dhiliphari/tixr/internal/catalog"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,9 +25,11 @@ type config struct {
 }
 
 type application struct {
-	config config
-	logger *slog.Logger
-	db     *pgxpool.Pool
+	config  config
+	logger  *slog.Logger
+	db      *pgxpool.Pool
+	catalog *catalog.Store
+	booking *booking.Store
 }
 
 func main() {
