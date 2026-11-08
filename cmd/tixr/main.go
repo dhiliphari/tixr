@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"time"
 
@@ -39,14 +39,20 @@ func main() {
 
 	if displayVersion {
 		fmt.Printf("Version:\t%s\n", version)
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	if cfg.db.dsn == "" {
-		logger.Error("database DSN is required: set TIXR_DB_DSN or pass -db-dsn")
+	if err := run(cfg, logger); err != nil {
+		logger.Error("tixr exited with an error", "error", err)
 		os.Exit(1)
+	}
+}
+
+func run(cfg config, logger *slog.Logger) error {
+	if cfg.db.dsn == "" {
+		return errors.New("database DSN is required: set TIXR_DB_DSN or pass -db-dsn")
 	}
 
 	db, err := openDB(cfg)
@@ -64,26 +70,10 @@ func main() {
 		db:      db,
 		catalog: catalog.NewStore(db),
 		booking: booking.NewStore(db),
-		mailer: &mailer{
-			logger: logger,
-			delay:  cfg.mailDelay,
-		},
+		mailer:  &mailer{logger: logger, delay: cfg.mailDelay},
 	}
 
-	srv := http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
-	}
-
-	logger.Info("starting server", "addr", srv.Addr, "env", cfg.env, "version", version)
-
-	err = srv.ListenAndServe()
-	logger.Error("server stopped", "error", err)
-	os.Exit(1)
+	return app.serve()
 }
 
 func loadCfg() (config, bool) {
