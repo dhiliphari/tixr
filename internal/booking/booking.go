@@ -41,6 +41,12 @@ type Store struct {
 	db *pgxpool.Pool
 }
 
+func NewStore(db *pgxpool.Pool) *Store {
+	return &Store{
+		db: db,
+	}
+}
+
 func (s *Store) ListSeats(ctx context.Context, eventID int64) ([]Seat, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT id, event_id, label, price_cents, status

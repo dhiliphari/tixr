@@ -51,6 +51,11 @@ func (app *application) createBookingHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// failed confirmation email doesn't fail the booking
+	if err := app.mailer.SendBookingConfirmation(r.Context(), b); err != nil {
+		app.logger.Error("send booking confirmation", "error", err, "booking_id", b.ID)
+	}
+
 	headers := http.Header{"Location": []string{fmt.Sprintf("/v1/bookings/%d", b.ID)}}
 	if err := app.writeJSON(w, http.StatusCreated, envelope{"booking": b}, headers); err != nil {
 		app.serverErrorResponse(w, r, err)

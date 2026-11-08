@@ -22,6 +22,7 @@ type config struct {
 	db   struct {
 		dsn string
 	}
+	mailDelay time.Duration
 }
 
 type application struct {
@@ -30,6 +31,7 @@ type application struct {
 	db      *pgxpool.Pool
 	catalog *catalog.Store
 	booking *booking.Store
+	mailer  *mailer
 }
 
 func main() {
@@ -57,9 +59,15 @@ func main() {
 	logger.Info("database connection pool established")
 
 	app := &application{
-		config: cfg,
-		logger: logger,
-		db:     db,
+		config:  cfg,
+		logger:  logger,
+		db:      db,
+		catalog: catalog.NewStore(db),
+		booking: booking.NewStore(db),
+		mailer: &mailer{
+			logger: logger,
+			delay:  cfg.mailDelay,
+		},
 	}
 
 	srv := http.Server{
@@ -84,6 +92,7 @@ func loadCfg() (config, bool) {
 	flag.IntVar(&cfg.port, "port", 4000, "HTTP server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("TIXR_DB_DSN"), "PostgreSQL DSN")
+	flag.DurationVar(&cfg.mailDelay, "mail-delay", 2*time.Second, "Simulated latency of sending an email")
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
 	flag.Parse()
