@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/dhiliphari/tixr/internal/booking"
 )
@@ -52,9 +54,14 @@ func (app *application) createBookingHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	// failed confirmation email doesn't fail the booking
-	if err := app.mailer.SendBookingConfirmation(r.Context(), b); err != nil {
-		app.logger.Error("send booking confirmation", "error", err, "booking_id", b.ID)
-	}
+	ctx := context.WithoutCancel(r.Context())
+	go func() {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := app.mailer.SendBookingConfirmation(ctx, b); err != nil {
+			app.logger.Error("send booking confirmation", "error", err, "booking_id", b.ID)
+		}
+	}()
 
 	headers := http.Header{"Location": []string{fmt.Sprintf("/v1/bookings/%d", b.ID)}}
 	if err := app.writeJSON(w, http.StatusCreated, envelope{"booking": b}, headers); err != nil {
