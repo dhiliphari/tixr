@@ -55,6 +55,11 @@ db/migrations/up:
 	@echo 'Running up migrations...'
 	migrate -path migrations -database="${TIXR_DB_DSN}" up
 
+## db/seed: DELETE all data and load sample events and seats
+.PHONY: db/seed
+db/seed: confirm
+	docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U tixr -d tixr < scripts/seed.sql
+
 # ==================================================================================== #
 # QUALITY CONTROL
 # ==================================================================================== #
