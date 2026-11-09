@@ -86,6 +86,16 @@ audit:
 	@echo 'Running tests...'
 	go test -race -vet=off ./...
 
+## test: run unit tests
+.PHONY: test
+test:
+	go test -race ./...
+
+## test/integration: run unit and integration tests (requires Docker)
+.PHONY: test/integration
+test/integration:
+	go test -race -tags=integration ./...
+
 # ==================================================================================== #
 # BUILD
 # ==================================================================================== #

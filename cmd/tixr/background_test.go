@@ -32,7 +32,7 @@ func TestBackgroundRecoversPanics(t *testing.T) {
 		t.Fatalf("waitBackground: %v", err)
 	}
 
-	if !strings.Contains(logs.String(), "background task panicked") {
+	if !strings.Contains(logs.String(), "background has panicked") {
 		t.Errorf("expected panic to be logged, got logs: %s", logs.String())
 	}
 }
