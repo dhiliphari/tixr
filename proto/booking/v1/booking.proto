@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package booking.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dhiliphari/tixr/gen/booking/v1;bookingv1";
+
+service BookingService {
+  rpc ListSeats(ListSeatsRequest) returns (ListSeatsResponse);
+  rpc CreateBooking(CreateBookingRequest) returns (CreateBookingResponse);
+  rpc GetBooking(GetBookingRequest) returns (GetBookingResponse);
+}
+
+enum SeatStatus {
+    SEAT_STATUS_UNSPECIFIED = 0;
+    SEAT_STATUS_AVAILABLE = 1;
+    SEAT_STATUS_BOOKED = 2;
+}
+
+message Seat {
+  int64 id = 1;
+  int64 event_id = 2;
+  string label = 3;
+  int64 price_cents = 4;
+  SeatStatus status = 5;
+}
+
+message Booking {
+  int64 id = 1;
+  int64 event_id = 2;
+  int64 seat_id = 3;
+  string customer_email = 4;
+  int64 amount_cents = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListSeatsRequest {
+  int64 event_id = 1;
+}
+
+message ListSeatsResponse {
+  repeated Seat seats = 1;
+}
+
+message CreateBookingRequest {
+  int64 event_id = 1;
+  int64 seat_id = 2;
+  string customer_email = 3;
+}
+
+message CreateBookingResponse {
+  Booking booking = 1;
+}
+
+message GetBookingRequest {
+  int64 id = 1;
+}
+
+message GetBookingResponse {
+  Booking booking = 1;
+}

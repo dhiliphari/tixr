@@ -80,6 +80,8 @@ audit:
 	go mod verify
 	@echo 'Checking formatting...'
 	@test -z "$$(gofmt -l .)" || (echo 'Files need formatting:'; gofmt -l .; exit 1)
+	@echo 'Linting protobuf files...'
+	buf lint
 	@echo 'Vetting code...'
 	go vet ./...
 	go tool staticcheck ./...
@@ -108,3 +110,23 @@ linker_flags = '-s -X main.version=${git_description}'
 build/tixr:
 	@echo 'Building cmd/tixr...'
 	go build -ldflags=${linker_flags} -o=./bin/tixr ./cmd/tixr
+
+# ==================================================================================== #
+# PROTOBUF
+# ==================================================================================== #
+
+## proto/lint: lint protobuf files
+.PHONY: proto/lint
+proto/lint:
+	buf lint
+
+## proto/gen: generate Go code from protobuf files
+.PHONY: proto/gen
+proto/gen:
+	@echo 'Generating code from proto/ into gen/...'
+	buf generate
+
+## proto/breaking: check protobuf files for breaking changes against main
+.PHONY: proto/breaking
+proto/breaking:
+	buf breaking --against '.git#branch=main'

@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dhiliphari/tixr/gen/catalog/v1;catalogv1";
+
+service CatalogService {
+    rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+    rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+}
+
+message Event {
+    int64 id = 1;
+    string name = 2;
+    string venue = 3;
+    google.protobuf.Timestamp starts_at = 4;
+    google.protobuf.Timestamp created_at = 5;
+}
+
+message ListEventsRequest {}
+
+message ListEventsResponse {
+    repeated Event events = 1;
+}
+
+message GetEventRequest {
+  int64 id = 1;
+}
+
+message GetEventResponse {
+  Event event = 1;
+}
