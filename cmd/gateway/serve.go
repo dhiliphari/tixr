@@ -49,11 +49,6 @@ func (app *application) serve() error {
 		return fmt.Errorf("shutdown: %w", err)
 	}
 
-	app.logger.Info("waiting for background tasks")
-	if err := app.waitBackground(shutdownCtx); err != nil {
-		return err
-	}
-
 	app.logger.Info("server stopped")
 	return nil
 }

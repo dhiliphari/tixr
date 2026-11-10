@@ -18,10 +18,20 @@ confirm:
 # DEVELOPMENT
 # ==================================================================================== #
 
-## run/tixr: run the cmd/tixr application
-.PHONY: run/tixr
-run/tixr:
-	go run ./cmd/tixr -db-dsn="${TIXR_DB_DSN}"
+## run/catalog: run the catalog gRPC service
+.PHONY: run/catalog
+run/catalog:
+	go run ./cmd/catalog -db-dsn="${TIXR_DB_DSN}"
+
+## run/booking: run the booking gRPC service
+.PHONY: run/booking
+run/booking:
+	go run ./cmd/booking -db-dsn="${TIXR_DB_DSN}"
+
+## run/gateway: run the HTTP gateway
+.PHONY: run/gateway
+run/gateway:
+	go run ./cmd/gateway
 
 ## infra/up: start local infrastructure and wait until it's healthy
 .PHONY: infra/up
@@ -105,11 +115,27 @@ test/integration:
 git_description = $(shell git describe --always --dirty --tags --long 2>/dev/null || echo dev)
 linker_flags = '-s -X main.version=${git_description}'
 
-## build/tixr: build the cmd/tixr application
-.PHONY: build/tixr
-build/tixr:
-	@echo 'Building cmd/tixr...'
-	go build -ldflags=${linker_flags} -o=./bin/tixr ./cmd/tixr
+## build/catalog: build the catalog service
+.PHONY: build/catalog
+build/catalog:
+	@echo 'Building cmd/catalog...'
+	go build -ldflags=${linker_flags} -o=./bin/catalog ./cmd/catalog
+
+## build/booking: build the booking service
+.PHONY: build/booking
+build/booking:
+	@echo 'Building cmd/booking...'
+	go build -ldflags=${linker_flags} -o=./bin/booking ./cmd/booking
+
+## build/gateway: build the HTTP gateway
+.PHONY: build/gateway
+build/gateway:
+	@echo 'Building cmd/gateway...'
+	go build -ldflags=${linker_flags} -o=./bin/gateway ./cmd/gateway
+
+## build/all: build every service
+.PHONY: build/all
+build/all: build/catalog build/booking build/gateway
 
 # ==================================================================================== #
 # PROTOBUF

@@ -4,14 +4,21 @@ import (
 	"errors"
 	"net/http"
 
+	bookingv1 "github.com/dhiliphari/tixr/gen/booking/v1"
+	catalogv1 "github.com/dhiliphari/tixr/gen/catalog/v1"
 	"github.com/dhiliphari/tixr/internal/catalog"
 )
 
 func (app *application) listEventsHandler(w http.ResponseWriter, r *http.Request) {
-	events, err := app.catalog.ListEvents(r.Context())
+	resp, err := app.catalog.ListEvents(r.Context(), &catalogv1.ListEventsRequest{})
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
+	}
+
+	events := make([]event, 0, len(resp.Events))
+	for _, e := range resp.Events {
+		events = append(events, eventFromProto(e))
 	}
 
 	if err := app.writeJSON(w, http.StatusOK, envelope{"events": events}, nil); err != nil {
@@ -26,7 +33,7 @@ func (app *application) showEventHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	event, err := app.catalog.GetEvent(r.Context(), id)
+	resp, err := app.catalog.GetEvent(r.Context(), &catalogv1.GetEventRequest{Id: id})
 	if err != nil {
 		switch {
 		case errors.Is(err, catalog.ErrNotFound):
@@ -36,6 +43,8 @@ func (app *application) showEventHandler(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+
+	event := eventFromProto(resp.Event)
 
 	if err := app.writeJSON(w, http.StatusOK, envelope{"event": event}, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -50,7 +59,7 @@ func (app *application) listSeatsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// An unknown event should be a 404, not an empty list of seats.
-	if _, err := app.catalog.GetEvent(r.Context(), id); err != nil {
+	if _, err := app.catalog.GetEvent(r.Context(), &catalogv1.GetEventRequest{Id: id}); err != nil {
 		switch {
 		case errors.Is(err, catalog.ErrNotFound):
 			app.notFoundResponse(w, r)
@@ -60,10 +69,15 @@ func (app *application) listSeatsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	seats, err := app.booking.ListSeats(r.Context(), id)
+	resp, err := app.booking.ListSeats(r.Context(), &bookingv1.ListSeatsRequest{EventId: id})
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
+	}
+
+	seats := make([]seat, 0, len(resp.Seats))
+	for _, s := range resp.Seats {
+		seats = append(seats, seatFromProto(s))
 	}
 
 	if err := app.writeJSON(w, http.StatusOK, envelope{"seats": seats}, nil); err != nil {

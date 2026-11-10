@@ -96,7 +96,7 @@ func run(cfg config, logger *slog.Logger) error {
 func loadCfg() (config, bool) {
 	var cfg config
 
-	flag.IntVar(&cfg.port, "port", 4000, "HTTP server port")
+	flag.IntVar(&cfg.port, "port", 50051, "HTTP server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("TIXR_DB_DSN"), "PostgreSQL DSN")
 	flag.DurationVar(&cfg.shutdownTimeout, "shutdown-timeout", 20*time.Second, "Maximum time to wait for in-flight work during shutdown")

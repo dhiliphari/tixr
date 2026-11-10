@@ -1,13 +1,12 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
+	bookingv1 "github.com/dhiliphari/tixr/gen/booking/v1"
 	"github.com/dhiliphari/tixr/internal/booking"
 )
 
@@ -40,7 +39,11 @@ func (app *application) createBookingHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	b, err := app.booking.Create(r.Context(), eventID, input.SeatID, input.Email)
+	resp, err := app.booking.CreateBooking(r.Context(), &bookingv1.CreateBookingRequest{
+		EventId:       eventID,
+		SeatId:        input.SeatID,
+		CustomerEmail: input.Email,
+	})
 	if err != nil {
 		switch {
 		case errors.Is(err, booking.ErrNotFound):
@@ -53,19 +56,10 @@ func (app *application) createBookingHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// failed confirmation email doesn't fail the booking
-	ctx := context.WithoutCancel(r.Context())
-	app.background(func() {
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
+	booking := bookingFromProto(resp.Booking)
 
-		if err := app.mailer.SendBookingConfirmation(ctx, b); err != nil {
-			app.logger.Error("send booking confirmation", "error", err, "booking_id", b.ID)
-		}
-	})
-
-	headers := http.Header{"Location": []string{fmt.Sprintf("/v1/bookings/%d", b.ID)}}
-	if err := app.writeJSON(w, http.StatusCreated, envelope{"booking": b}, headers); err != nil {
+	headers := http.Header{"Location": []string{fmt.Sprintf("/v1/bookings/%d", booking.ID)}}
+	if err := app.writeJSON(w, http.StatusCreated, envelope{"booking": booking}, headers); err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
 }
@@ -77,7 +71,7 @@ func (app *application) showBookingHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	b, err := app.booking.Get(r.Context(), id)
+	resp, err := app.booking.GetBooking(r.Context(), &bookingv1.GetBookingRequest{Id: id})
 	if err != nil {
 		switch {
 		case errors.Is(err, booking.ErrNotFound):
@@ -88,7 +82,9 @@ func (app *application) showBookingHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := app.writeJSON(w, http.StatusOK, envelope{"booking": b}, nil); err != nil {
+	booking := bookingFromProto(resp.Booking)
+
+	if err := app.writeJSON(w, http.StatusOK, envelope{"booking": booking}, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
 }
