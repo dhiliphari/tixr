@@ -1,13 +1,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	bookingv1 "github.com/dhiliphari/tixr/gen/booking/v1"
-	"github.com/dhiliphari/tixr/internal/booking"
 )
 
 func (app *application) createBookingHandler(w http.ResponseWriter, r *http.Request) {
@@ -45,14 +43,7 @@ func (app *application) createBookingHandler(w http.ResponseWriter, r *http.Requ
 		CustomerEmail: input.Email,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, booking.ErrNotFound):
-			app.notFoundResponse(w, r)
-		case errors.Is(err, booking.ErrSeatUnavailable):
-			app.conflictResponse(w, r, "the seat is no longer available")
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
+		app.grpcErrorResponse(w, r, err)
 		return
 	}
 
@@ -73,12 +64,7 @@ func (app *application) showBookingHandler(w http.ResponseWriter, r *http.Reques
 
 	resp, err := app.booking.GetBooking(r.Context(), &bookingv1.GetBookingRequest{Id: id})
 	if err != nil {
-		switch {
-		case errors.Is(err, booking.ErrNotFound):
-			app.notFoundResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
+		app.grpcErrorResponse(w, r, err)
 		return
 	}
 

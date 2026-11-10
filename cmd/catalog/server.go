@@ -11,7 +11,7 @@ import (
 func (app *application) ListEvents(ctx context.Context, req *catalogv1.ListEventsRequest) (*catalogv1.ListEventsResponse, error) {
 	events, err := app.store.ListEvents(ctx)
 	if err != nil {
-		return nil, err
+		return nil, app.toStatus(err)
 	}
 
 	resp := &catalogv1.ListEventsResponse{
@@ -27,7 +27,7 @@ func (app *application) ListEvents(ctx context.Context, req *catalogv1.ListEvent
 func (app *application) GetEvent(ctx context.Context, req *catalogv1.GetEventRequest) (*catalogv1.GetEventResponse, error) {
 	e, err := app.store.GetEvent(ctx, req.GetId())
 	if err != nil {
-		return nil, err
+		return nil, app.toStatus(err)
 	}
 
 	return &catalogv1.GetEventResponse{Event: toProtoEvent(e)}, nil

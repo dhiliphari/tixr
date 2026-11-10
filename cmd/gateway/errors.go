@@ -1,6 +1,11 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
 
 func (app *application) logError(r *http.Request, err error) {
 	app.logger.Error("request failed", "error", err, "method", r.Method, "uri", r.URL.RequestURI())
@@ -32,4 +37,29 @@ func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.
 
 func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request, message string) {
 	app.errorResponse(w, r, http.StatusConflict, message)
+}
+
+func (app *application) grpcErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	st, ok := status.FromError(err)
+	if !ok {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	switch st.Code() {
+	case codes.NotFound:
+		app.notFoundResponse(w, r)
+	case codes.InvalidArgument:
+		app.errorResponse(w, r, http.StatusBadRequest, st.Message())
+	case codes.FailedPrecondition, codes.AlreadyExists:
+		app.conflictResponse(w, r, st.Message())
+	case codes.Unavailable:
+		app.logError(r, err)
+		app.errorResponse(w, r, http.StatusServiceUnavailable, "the service is temporarily unavailable, please try again later")
+	case codes.DeadlineExceeded:
+		app.logError(r, err)
+		app.errorResponse(w, r, http.StatusGatewayTimeout, "the request took too long to process")
+	default:
+		app.serverErrorResponse(w, r, err)
+	}
 }

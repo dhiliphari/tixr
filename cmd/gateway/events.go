@@ -1,18 +1,16 @@
 package main
 
 import (
-	"errors"
 	"net/http"
 
 	bookingv1 "github.com/dhiliphari/tixr/gen/booking/v1"
 	catalogv1 "github.com/dhiliphari/tixr/gen/catalog/v1"
-	"github.com/dhiliphari/tixr/internal/catalog"
 )
 
 func (app *application) listEventsHandler(w http.ResponseWriter, r *http.Request) {
 	resp, err := app.catalog.ListEvents(r.Context(), &catalogv1.ListEventsRequest{})
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.grpcErrorResponse(w, r, err)
 		return
 	}
 
@@ -35,12 +33,7 @@ func (app *application) showEventHandler(w http.ResponseWriter, r *http.Request)
 
 	resp, err := app.catalog.GetEvent(r.Context(), &catalogv1.GetEventRequest{Id: id})
 	if err != nil {
-		switch {
-		case errors.Is(err, catalog.ErrNotFound):
-			app.notFoundResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
+		app.grpcErrorResponse(w, r, err)
 		return
 	}
 
@@ -60,12 +53,7 @@ func (app *application) listSeatsHandler(w http.ResponseWriter, r *http.Request)
 
 	// An unknown event should be a 404, not an empty list of seats.
 	if _, err := app.catalog.GetEvent(r.Context(), &catalogv1.GetEventRequest{Id: id}); err != nil {
-		switch {
-		case errors.Is(err, catalog.ErrNotFound):
-			app.notFoundResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
+		app.grpcErrorResponse(w, r, err)
 		return
 	}
 
