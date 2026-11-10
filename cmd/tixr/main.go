@@ -12,6 +12,7 @@ import (
 
 	"github.com/dhiliphari/tixr/internal/booking"
 	"github.com/dhiliphari/tixr/internal/catalog"
+	"github.com/dhiliphari/tixr/internal/database"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -58,7 +59,10 @@ func run(cfg config, logger *slog.Logger) error {
 		return errors.New("database DSN is required: set TIXR_DB_DSN or pass -db-dsn")
 	}
 
-	db, err := openDB(cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	db, err := database.Open(ctx, cfg.db.dsn)
 	if err != nil {
 		logger.Error("open database", "error", err)
 		os.Exit(1)
@@ -92,26 +96,4 @@ func loadCfg() (config, bool) {
 	flag.Parse()
 
 	return cfg, *displayVersion
-}
-
-func openDB(cfg config) (*pgxpool.Pool, error) {
-	poolCfg, err := pgxpool.ParseConfig(cfg.db.dsn)
-	if err != nil {
-		return nil, fmt.Errorf("parse dsn: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
-	if err != nil {
-		return nil, fmt.Errorf("create pool: %w", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping: %w", err)
-	}
-
-	return pool, nil
 }
