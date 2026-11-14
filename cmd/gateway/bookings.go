@@ -26,8 +26,8 @@ func (app *application) createBookingHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	errs := map[string]string{}
-	if input.SeatID < 1 {
-		errs["seat_id"] = "must be a positive integer"
+	if input.SeatID < 0 {
+		errs["seat_id"] = "must be a positive integer, or omitted for the best available seat"
 	}
 	if !strings.Contains(input.Email, "@") {
 		errs["email"] = "must be a valid email address"

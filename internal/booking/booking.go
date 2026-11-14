@@ -14,6 +14,7 @@ import (
 var (
 	ErrNotFound        = errors.New("booking: not found")
 	ErrSeatUnavailable = errors.New("booking: seat unavailable")
+	ErrSoldOut         = errors.New("booking: sold out")
 )
 
 const (
@@ -102,6 +103,25 @@ func (s *Store) Create(ctx context.Context, eventID, seatID int64, email string)
 	}
 
 	return b, nil
+}
+
+// CreateBestAvailable books the lowest-numbered available seat.
+func (s *Store) CreateBestAvailable(ctx context.Context, eventID int64, email string) (Booking, error) {
+	var seatID int64
+	err := s.db.QueryRow(ctx, `
+		SELECT id
+		FROM seats
+		WHERE event_id = $1 AND status = $2
+		ORDER BY id
+		LIMIT 1`, eventID, SeatAvailable).Scan(&seatID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Booking{}, ErrSoldOut
+	}
+	if err != nil {
+		return Booking{}, fmt.Errorf("find available seat: %w", err)
+	}
+
+	return s.Create(ctx, eventID, seatID, email)
 }
 
 func (s *Store) Get(ctx context.Context, id int64) (Booking, error) {

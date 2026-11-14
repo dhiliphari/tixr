@@ -32,7 +32,7 @@ func (app *application) ListSeats(ctx context.Context, req *bookingv1.ListSeatsR
 }
 
 func (app *application) CreateBooking(ctx context.Context, req *bookingv1.CreateBookingRequest) (*bookingv1.CreateBookingResponse, error) {
-	if req.GetEventId() < 1 || req.GetSeatId() < 1 || !strings.Contains(req.GetCustomerEmail(), "@") {
+	if req.GetEventId() < 1 || req.GetSeatId() < 0 || !strings.Contains(req.GetCustomerEmail(), "@") {
 		return nil, status.Error(codes.InvalidArgument, "event_id, seat_id and a valid customer_email are required")
 	}
 
@@ -45,7 +45,12 @@ func (app *application) CreateBooking(ctx context.Context, req *bookingv1.Create
 		return nil, app.toStatus(errSalesClosed)
 	}
 
-	b, err := app.store.Create(ctx, req.GetEventId(), req.GetSeatId(), req.GetCustomerEmail())
+	var b booking.Booking
+	if req.GetSeatId() == 0 {
+		b, err = app.store.CreateBestAvailable(ctx, req.GetEventId(), req.GetCustomerEmail())
+	} else {
+		b, err = app.store.Create(ctx, req.GetEventId(), req.GetSeatId(), req.GetCustomerEmail())
+	}
 	if err != nil {
 		return nil, app.toStatus(err)
 	}

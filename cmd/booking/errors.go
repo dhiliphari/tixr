@@ -21,6 +21,8 @@ func (app *application) toStatus(err error) error {
 		return status.Error(codes.Canceled, "request cancelled")
 	case errors.Is(err, context.DeadlineExceeded):
 		return status.Error(codes.DeadlineExceeded, "deadline exceeded")
+	case errors.Is(err, booking.ErrSoldOut):
+		return status.Error(codes.FailedPrecondition, "the event is sold out")
 	default:
 		app.logger.Error("internal error", "error", err)
 		return status.Error(codes.Internal, "internal error")

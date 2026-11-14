@@ -45,6 +45,7 @@ message ListSeatsResponse {
 
 message CreateBookingRequest {
   int64 event_id = 1;
+  // The seat to book. Zero means "the best available seat".
   int64 seat_id = 2;
   string customer_email = 3;
 }
