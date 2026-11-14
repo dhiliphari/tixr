@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -74,47 +75,26 @@ func (s *Store) Create(ctx context.Context, eventID, seatID int64, email string)
 	}
 	defer tx.Rollback(ctx)
 
-	var (
-		status string
-		price  int
-	)
+	// Check and claim in one statement. If another transaction is claiming
+	// the same seat, this waits for it, then re-evaluates the WHERE clause
+	// against the seat's new state.
+	var price int
 	err = tx.QueryRow(ctx, `
-		SELECT status, price_cents
-		FROM seats
-		WHERE id = $1 AND event_id = $2
-	`, seatID, eventID).Scan(&status, &price)
-
+		UPDATE seats
+		SET status = $1, version = version + 1
+		WHERE id = $2 AND event_id = $3 AND status = $4
+		RETURNING price_cents`,
+		SeatBooked, seatID, eventID, SeatAvailable).Scan(&price)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Booking{}, ErrNotFound
+		return Booking{}, whyNotClaimed(ctx, tx, eventID, seatID)
 	}
 	if err != nil {
-		return Booking{}, fmt.Errorf("get seat %d: %w", seatID, err)
+		return Booking{}, fmt.Errorf("claim seat %d: %w", seatID, err)
 	}
 
-	if status != SeatAvailable {
-		return Booking{}, ErrSeatUnavailable
-	}
-
-	b := Booking{
-		EventID:       eventID,
-		SeatID:        seatID,
-		CustomerEmail: email,
-		AmountCents:   price,
-	}
-
-	err = tx.QueryRow(ctx, `
-		INSERT INTO bookings (event_id, seat_id, customer_email, amount_cents)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, created_at
-	`, b.EventID, b.SeatID, b.CustomerEmail, b.AmountCents).Scan(&b.ID, &b.CreatedAt)
-
+	b, err := insertBooking(ctx, tx, eventID, seatID, email, price)
 	if err != nil {
-		return Booking{}, fmt.Errorf("insert booking: %w", err)
-	}
-
-	_, err = tx.Exec(ctx, `UPDATE seats SET status = $1 WHERE id = $2`, SeatBooked, seatID)
-	if err != nil {
-		return Booking{}, fmt.Errorf("mark seat %d booked: %w", seatID, err)
+		return Booking{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -138,6 +118,51 @@ func (s *Store) Get(ctx context.Context, id int64) (Booking, error) {
 	}
 	if err != nil {
 		return Booking{}, fmt.Errorf("get booking %d: %w", id, err)
+	}
+
+	return b, nil
+}
+
+// whyNotClaimed works out why a conditional update matched no rows: either
+// the seat doesn't exist for this event, or it isn't available.
+func whyNotClaimed(ctx context.Context, tx pgx.Tx, eventID, seatID int64) error {
+	var exists bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM seats WHERE id = $1 AND event_id = $2)`,
+		seatID, eventID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check seat %d: %w", seatID, err)
+	}
+
+	if !exists {
+		return ErrNotFound
+	}
+	return ErrSeatUnavailable
+}
+
+// uniqueViolation is Postgres's SQLSTATE for a unique constraint violation.
+const uniqueViolation = "23505"
+
+func insertBooking(ctx context.Context, tx pgx.Tx, eventID, seatID int64, email string, price int) (Booking, error) {
+	b := Booking{
+		EventID:       eventID,
+		SeatID:        seatID,
+		CustomerEmail: email,
+		AmountCents:   price,
+	}
+
+	err := tx.QueryRow(ctx, `
+		INSERT INTO bookings (event_id, seat_id, customer_email, amount_cents)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at`,
+		b.EventID, b.SeatID, b.CustomerEmail, b.AmountCents).Scan(&b.ID, &b.CreatedAt)
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+		return Booking{}, ErrSeatUnavailable
+	}
+	if err != nil {
+		return Booking{}, fmt.Errorf("insert booking: %w", err)
 	}
 
 	return b, nil

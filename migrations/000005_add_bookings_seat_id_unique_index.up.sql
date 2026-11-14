@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_seat_id_key ON bookings (seat_id);

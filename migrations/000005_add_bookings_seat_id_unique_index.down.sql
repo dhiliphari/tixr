@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS bookings_seat_id_key;
