@@ -105,25 +105,50 @@ func (s *Store) Create(ctx context.Context, eventID, seatID int64, email string)
 	return b, nil
 }
 
-// CreateBestAvailable books the lowest-numbered available seat.
+// CreateBestAvailable books the lowest-numbered available seat. Concurrent
+// calls claim different seats instead of competing for the same one.
 func (s *Store) CreateBestAvailable(ctx context.Context, eventID int64, email string) (Booking, error) {
-	var seatID int64
-	err := s.db.QueryRow(ctx, `
-		SELECT id
-		FROM seats
-		WHERE event_id = $1 AND status = $2
-		ORDER BY id
-		LIMIT 1`, eventID, SeatAvailable).Scan(&seatID)
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Booking{}, fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var (
+		seatID int64
+		price  int
+	)
+	err = tx.QueryRow(ctx, `
+		UPDATE seats
+		SET status = $1, version = version + 1
+		WHERE id = (
+			SELECT id
+			FROM seats
+			WHERE event_id = $2 AND status = $3
+			ORDER BY id
+			LIMIT 1
+			FOR UPDATE SKIP LOCKED
+		)
+		RETURNING id, price_cents`,
+		SeatBooked, eventID, SeatAvailable).Scan(&seatID, &price)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Booking{}, ErrSoldOut
 	}
 	if err != nil {
-		return Booking{}, fmt.Errorf("find available seat: %w", err)
+		return Booking{}, fmt.Errorf("claim best available seat: %w", err)
 	}
 
-	return s.Create(ctx, eventID, seatID, email)
-}
+	b, err := insertBooking(ctx, tx, eventID, seatID, email, price)
+	if err != nil {
+		return Booking{}, err
+	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, fmt.Errorf("commit: %w", err)
+	}
+
+	return b, nil
+}
 func (s *Store) Get(ctx context.Context, id int64) (Booking, error) {
 	var b Booking
 
